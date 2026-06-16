@@ -232,6 +232,12 @@ tr:hover td{background:#F0FDFA}
 
 /* ─── LOGIN MODAL ─── */
 @keyframes modalIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* ─── ĐỔI MẬT KHẨU MODAL ─── */
+.mk-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:none;align-items:center;justify-content:center}
+.mk-overlay.open{display:flex}
+.mk-box{background:#fff;border-radius:16px;padding:28px;width:360px;box-shadow:var(--shadow-lg)}
+.mk-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.mk-title i{color:var(--teal);font-size:18px}
 .modal-overlay{
   position:fixed;inset:0;
   background:linear-gradient(135deg,#ECFDF5 0%,#F0FDFA 50%,#CCFBF1 100%);
@@ -372,7 +378,12 @@ tr:hover td{background:#F0FDFA}
         <div class="user-avatar" id="user-avatar">?</div>
         <span id="user-name">-</span>
         <span class="role-pill" id="user-role">-</span>
-        <button class="btn-logout" onclick="doLogout()">Đăng xuất</button>
+        <button onclick="openMKModal()" title="Đổi mật khẩu của tôi"
+  style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:2px 4px;line-height:1"
+  id="btn-doi-mk">
+  <i class="ti ti-lock" style="vertical-align:-2px"></i>
+</button>
+<button class="btn-logout" onclick="doLogout()">Đăng xuất</button>
       </div>
     </div>
   </div>
@@ -626,7 +637,7 @@ tr:hover td{background:#F0FDFA}
               <th>#</th>
               <th>Tên đăng nhập</th>
               <th>Họ và tên</th>
-              <th>Vai trò <span style="font-size:10px;font-weight:500;color:var(--text3)">(bấm để đổi)</span></th>
+              <th>Vai trò</th>
               <th>Mật khẩu</th>
               <th>Thao tác</th>
             </tr>
@@ -1320,27 +1331,23 @@ function renderAccounts(){
     <td style="color:var(--text3);font-weight:800">${i+1}</td>
     <td style="font-weight:800;font-family:monospace">${u.user}</td>
     <td style="font-weight:700">${u.name}</td>
-    <td>
-      ${u.user==='admin'
-        ? `<span class="role-admin">Quản trị</span>`
-        : `<button onclick="editAccRole('${u.user}','${u.role}')"
-            style="background:none;border:none;cursor:pointer;padding:0"
-            title="Bấm để đổi vai trò">
-            <span class="${u.role==='admin'?'role-admin':'role-staff'}" style="cursor:pointer">
-              ${u.role==='admin'?'Quản trị':'Giáo viên'}
-              <span style="font-size:10px;opacity:.6;margin-left:3px">✎</span>
-            </span>
-          </button>`
-      }
-    </td>
+    <td><span class="${u.role==='admin'?'role-admin':'role-staff'}">${u.role==='admin'?'Quản trị':'Giáo viên'}</span></td>
     <td>
       <span id="pw-${u.user}" style="font-family:monospace;font-size:12px">••••••••</span>
       <button onclick="togglePwShow('${u.user}','${u.pass}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;margin-left:4px"><i class="ti ti-eye"></i></button>
     </td>
-    <td style="display:flex;gap:6px;align-items:center">
-      ${u.user==='admin'?'<span style="font-size:11px;color:var(--text3)">Không xóa</span>':`
-      <button class="btn-sm-blue" onclick="editAccPass('${u.user}')">Đổi MK</button>
-      <button class="btn-danger" onclick="delAccount('${u.user}')">Xóa</button>`}
+    <td>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+        ${u.user==='admin'
+          ? '<span style="font-size:11px;color:var(--text3)">Không xóa</span>'
+          : `<button class="btn-sm-blue" onclick="editAccPass('${u.user}')">Đổi MK</button>
+             <button class="btn-sm-blue" onclick="editAccRole('${u.user}','${u.role}')"
+               style="background:#F5F3FF;color:#7C3AED;border-color:#DDD6FE">
+               Đổi vai trò
+             </button>
+             <button class="btn-danger" onclick="delAccount('${u.user}')">Xóa</button>`
+        }
+      </div>
     </td>
   </tr>`).join('');
 }
@@ -1539,7 +1546,67 @@ function fd(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y
     if(panel&&btn&&!panel.contains(e.target)&&!btn.contains(e.target))closeYrPanel();
   });
   // Make functions available globally (needed for inline onclick handlers with module scripts)
-  window.doLogin=doLogin;window.doLogout=doLogout;
+
+/* ─── ĐỔI MẬT KHẨU ─── */
+function openMKModal(){
+  document.getElementById('mk-old').value='';
+  document.getElementById('mk-new').value='';
+  document.getElementById('mk-confirm').value='';
+  document.getElementById('mk-err').textContent='';
+  document.getElementById('mk-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('mk-old').focus(),100);
+}
+
+function closeMKModal(e){
+  if(e && e.target!==document.getElementById('mk-overlay')) return;
+  document.getElementById('mk-overlay').classList.remove('open');
+}
+
+async function doDoiMK(){
+  const oldPass = document.getElementById('mk-old').value;
+  const newPass = document.getElementById('mk-new').value;
+  const confirm2 = document.getElementById('mk-confirm').value;
+  const errEl = document.getElementById('mk-err');
+  errEl.textContent='';
+
+  if(!oldPass||!newPass||!confirm2){errEl.textContent='Vui lòng điền đầy đủ.';return;}
+  if(oldPass !== currentUser.pass){errEl.textContent='Mật khẩu hiện tại không đúng.';return;}
+  if(newPass.length < 4){errEl.textContent='Mật khẩu mới tối thiểu 4 ký tự.';return;}
+  if(newPass !== confirm2){errEl.textContent='Mật khẩu xác nhận không khớp.';return;}
+  if(newPass === oldPass){errEl.textContent='Mật khẩu mới phải khác mật khẩu cũ.';return;}
+
+  setLoading(true,'Đang cập nhật mật khẩu...');
+  try{
+    // Tìm và cập nhật trong Firestore
+    const ref = _doc(COL_USERS, currentUser.user);
+    const snap = await _getDoc(ref);
+    if(snap.exists()){
+      await _setDoc(ref, {...snap.data(), pass: newPass});
+    }
+    // Cập nhật local
+    currentUser.pass = newPass;
+    const u = allUsers.find(x=>x.user===currentUser.user);
+    if(u) u.pass = newPass;
+    // Cập nhật trong USERS array gốc
+    const u2 = USERS.find(x=>x.user===currentUser.user);
+    if(u2) u2.pass = newPass;
+
+    document.getElementById('mk-overlay').classList.remove('open');
+    // Hiện thông báo thành công
+    const toast = document.getElementById('fb-toast');
+    if(toast){
+      document.getElementById('fb-toast-msg').textContent='✓ Đã đổi mật khẩu thành công!';
+      toast.style.background='#059669';
+      toast.style.display='flex';
+      setTimeout(()=>{toast.style.display='none';toast.style.background='';},3000);
+    }
+  }catch(e){
+    errEl.textContent='Lỗi: '+e.message;
+  }
+  setLoading(false);
+}
+
+  window.doLogin=doLogin;window.doLogout=doLogout;window.openMKModal=openMKModal;window.closeMKModal=closeMKModal;window.doDoiMK=doDoiMK;
   window.switchTab=switchTab;window.toggleYrPanel=toggleYrPanel;
   window.selectYear=selectYear;window.addYear=addYear;window.delYear=delYear;
   window.acInput=acInput;window.hideAc=hideAc;window.pickGV=pickGV;
@@ -1553,5 +1620,30 @@ function fd(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y
   window.handleAccFile=handleAccFile;window.xuatExcel=xuatExcel;
 })();
 </script>
+
+<!-- ĐỔI MẬT KHẨU MODAL -->
+<div class="mk-overlay" id="mk-overlay" onclick="closeMKModal(event)">
+  <div class="mk-box" onclick="event.stopPropagation()">
+    <div class="mk-title"><i class="ti ti-lock"></i> Đổi mật khẩu</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>Mật khẩu hiện tại</label>
+      <input type="password" id="mk-old" placeholder="Nhập mật khẩu hiện tại..."/>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>Mật khẩu mới</label>
+      <input type="password" id="mk-new" placeholder="Tối thiểu 4 ký tự..."/>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>Xác nhận mật khẩu mới</label>
+      <input type="password" id="mk-confirm" placeholder="Nhập lại mật khẩu mới..."/>
+    </div>
+    <div id="mk-err" style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:10px;min-height:16px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="doDoiMK()" style="flex:1">Xác nhận đổi</button>
+      <button class="btn btn-ghost" onclick="closeMKModal()">Huỷ</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
