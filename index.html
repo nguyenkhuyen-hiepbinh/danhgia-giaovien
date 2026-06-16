@@ -622,8 +622,9 @@ const GROUPS=[
 ];
 
 // Tài khoản mặc định (fallback khi chưa có Firestore users)
+// Tài khoản mặc định — luôn hoạt động kể cả khi Firestore lỗi
 let USERS = [
-  {user:'admin', pass:'Admin@2025', name:'Quản trị viên', role:'admin'},
+  {user:'admin', pass:'admin2025', name:'Quản trị viên', role:'admin'},
 ];
 
 // ══════════════════════════════════════════════════
@@ -667,11 +668,20 @@ async function removeYear(nh){
 }
 
 async function loadUsers(){
+  // Luôn bắt đầu với tài khoản local làm nền
+  allUsers=[...USERS];
   try{
     const snap=await getDocs(collection(db,COL_USERS));
-    const fbUsers=snap.docs.map(d=>d.data());
-    allUsers=[...USERS.filter(u=>!fbUsers.find(f=>f.user===u.user)),...fbUsers];
-  }catch(e){allUsers=[...USERS];}
+    const fbUsers=snap.docs.map(d=>d.data()).filter(u=>u.user&&u.pass);
+    // Merge: Firestore ghi đè local nếu cùng username
+    fbUsers.forEach(fu=>{
+      const idx=allUsers.findIndex(u=>u.user===fu.user);
+      if(idx>=0) allUsers[idx]=fu;
+      else allUsers.push(fu);
+    });
+  }catch(e){
+    console.warn('Firestore loadUsers lỗi, dùng tài khoản local:',e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════
