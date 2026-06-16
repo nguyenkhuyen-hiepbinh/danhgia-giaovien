@@ -626,7 +626,7 @@ tr:hover td{background:#F0FDFA}
               <th>#</th>
               <th>Tên đăng nhập</th>
               <th>Họ và tên</th>
-              <th>Vai trò</th>
+              <th>Vai trò <span style="font-size:10px;font-weight:500;color:var(--text3)">(bấm để đổi)</span></th>
               <th>Mật khẩu</th>
               <th>Thao tác</th>
             </tr>
@@ -1320,7 +1320,19 @@ function renderAccounts(){
     <td style="color:var(--text3);font-weight:800">${i+1}</td>
     <td style="font-weight:800;font-family:monospace">${u.user}</td>
     <td style="font-weight:700">${u.name}</td>
-    <td><span class="${u.role==='admin'?'role-admin':'role-staff'}">${u.role==='admin'?'Quản trị':'Giáo viên'}</span></td>
+    <td>
+      ${u.user==='admin'
+        ? `<span class="role-admin">Quản trị</span>`
+        : `<button onclick="editAccRole('${u.user}','${u.role}')"
+            style="background:none;border:none;cursor:pointer;padding:0"
+            title="Bấm để đổi vai trò">
+            <span class="${u.role==='admin'?'role-admin':'role-staff'}" style="cursor:pointer">
+              ${u.role==='admin'?'Quản trị':'Giáo viên'}
+              <span style="font-size:10px;opacity:.6;margin-left:3px">✎</span>
+            </span>
+          </button>`
+      }
+    </td>
     <td>
       <span id="pw-${u.user}" style="font-family:monospace;font-size:12px">••••••••</span>
       <button onclick="togglePwShow('${u.user}','${u.pass}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;margin-left:4px"><i class="ti ti-eye"></i></button>
@@ -1378,6 +1390,23 @@ async function editAccPass(user){
     if(snap.exists())await _setDoc(ref,{...snap.data(),pass:newPass});
     await loadAndRenderAccounts();
     showAccMsg('Đã đổi MK cho: '+user,'var(--blue)');
+  }catch(e){alert('Lỗi: '+e.message);}
+  setLoading(false);
+}
+
+async function editAccRole(user, currentRole){
+  const newRole = currentRole==='admin' ? 'staff' : 'admin';
+  const label = newRole==='admin' ? 'Quản trị (toàn quyền)' : 'Giáo viên (chỉ nhập)';
+  if(!confirm('Đổi vai trò "'+user+'" sang '+label+'?')) return;
+  setLoading(true,'Đang cập nhật...');
+  try{
+    const ref=_doc(COL_USERS,user);
+    const snap=await _getDoc(ref);
+    if(snap.exists()) await _setDoc(ref,{...snap.data(),role:newRole});
+    const u=allUsers.find(x=>x.user===user);
+    if(u) u.role=newRole;
+    renderAccounts();
+    showAccMsg('Đã đổi vai trò '+user+' → '+label,'var(--teal,#0D9488)');
   }catch(e){alert('Lỗi: '+e.message);}
   setLoading(false);
 }
@@ -1517,7 +1546,7 @@ function fd(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y
   window.luuVP=luuVP;window.xoaForm=xoaForm;window.delVP=delVP;
   window.updateDTL=updateDTL;window.renderLS=renderLS;
   window.renderTK=renderTK;window.renderXH=renderXH;
-  window.addAccount=addAccount;window.delAccount=delAccount;
+  window.editAccRole=editAccRole;window.addAccount=addAccount;window.delAccount=delAccount;
   window.editAccPass=editAccPass;window.togglePass=togglePass;
   window.togglePwShow=togglePwShow;window.renderAccounts=renderAccounts;
   window.exportAccounts=exportAccounts;window.downloadTemplate=downloadTemplate;
