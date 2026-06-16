@@ -461,6 +461,85 @@ tr:hover td{background:#F8FBFF}
     </div>
   </div>
 
+
+
+  <!-- TÀI KHOẢN -->
+  <div id="tab-taikhoan" class="section">
+    <div class="card">
+      <div class="card-title">Thêm tài khoản mới</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;flex-wrap:wrap">
+        <div class="fg"><label>Tên đăng nhập</label><input type="text" id="ac-user" placeholder="vd: gv.nam"/></div>
+        <div class="fg"><label>Họ và tên</label><input type="text" id="ac-name" placeholder="Nguyễn Văn Nam"/></div>
+        <div class="fg">
+          <label>Mật khẩu</label>
+          <div class="pass-eye">
+            <input type="password" id="ac-pass" placeholder="Mật khẩu..."/>
+            <button onclick="togglePass('ac-pass',this)" tabindex="-1"><i class="ti ti-eye"></i></button>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Vai trò</label>
+          <select id="ac-role">
+            <option value="staff">Giáo viên (chỉ nhập)</option>
+            <option value="admin">Quản trị (toàn quyền)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addAccount()" style="white-space:nowrap;height:38px"><i class="ti ti-plus" style="vertical-align:-2px;margin-right:4px"></i>Thêm</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Nhập danh sách tài khoản (CSV)</div>
+        <div class="import-zone" onclick="document.getElementById('acc-file').click()"
+          ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+          ondragleave="this.style.borderColor='var(--blue-mid)'"
+          ondrop="event.preventDefault();handleAccFile(event.dataTransfer.files[0])">
+          <i class="ti ti-file-upload"></i>
+          <p>Kéo thả hoặc bấm để chọn file CSV</p>
+          <small>Định dạng: taikhoan, hoten, matkhau, vaitro (admin/staff)</small>
+        </div>
+        <input type="file" id="acc-file" accept=".csv" style="display:none" onchange="handleAccFile(this.files[0])"/>
+        <div id="import-msg" style="margin-top:8px;font-size:12px;font-weight:700;display:none"></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Xuất & tải file mẫu</div>
+        <p style="font-size:13px;color:var(--text2);font-weight:500;margin-bottom:14px">Xuất toàn bộ tài khoản hiện tại ra file CSV để backup hoặc chia sẻ.</p>
+        <button class="btn btn-primary" onclick="exportAccounts()" style="margin-bottom:10px">
+          <i class="ti ti-download" style="vertical-align:-2px;margin-right:5px"></i>Xuất file tài khoản (.csv)
+        </button>
+        <div>
+          <a href="#" onclick="downloadTemplate();return false" style="font-size:12px;font-weight:700;color:var(--blue)">
+            <i class="ti ti-download" style="vertical-align:-2px;margin-right:4px"></i>Tải file mẫu CSV
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin:0">Danh sách tài khoản (<span id="acc-count">0</span>)</div>
+        <input type="text" id="acc-search" placeholder="Tìm tài khoản..." oninput="renderAccounts()"
+          style="font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);font-weight:500;min-width:180px"/>
+      </div>
+      <div class="tbl-wrap">
+        <table class="acc-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tên đăng nhập</th>
+              <th>Họ và tên</th>
+              <th>Vai trò</th>
+              <th>Mật khẩu</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="acc-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   </div><!-- .content -->
 </div><!-- .main -->
 </div><!-- .shell -->
@@ -533,13 +612,13 @@ tr:hover td{background:#F8FBFF}
   &nbsp;·&nbsp;<span>Mọi quyền được bảo lưu</span>&nbsp;·&nbsp;<span style="opacity:.7">v2.0 · Firebase</span>
 </footer>
 
-<script type="module">
+<!-- Firebase compat SDK — load trước main script -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
 // ══════════════════════════════════════════════════
-// FIREBASE
+// FIREBASE — dùng compat SDK (hoạt động với file://)
 // ══════════════════════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, query, where, setDoc, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCntzDFrrvCEHYoRllC5z2sh-tCk_7IOrA",
   authDomain: "thidua-nk.firebaseapp.com",
@@ -548,9 +627,41 @@ const firebaseConfig = {
   messagingSenderId: "316994322198",
   appId: "1:316994322198:web:d94d9e856d03351c771a37"
 };
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
 
+let db = null;
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase SDK chua load xong');
+      return false;
+    }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    // Disable network timeout warnings
+    db.settings({ ignoreUndefinedProperties: true });
+    console.log('Firebase OK');
+    return true;
+  } catch(e) {
+    console.warn('Firebase loi:', e.message);
+    return false;
+  }
+}
+
+// Firestore helpers dùng compat API
+function _col(name){ return db.collection(name); }
+function _doc(col, id){ return db.collection(col).doc(id); }
+function _getDocs(ref){ return ref.get(); }
+function _addDoc(col, data){ return db.collection(col).add(data); }
+function _setDoc(ref, data){ return ref.set(data); }
+function _getDoc(ref){ return ref.get(); }
+function _deleteDoc(ref){ return ref.delete(); }
+function _query(col, ...constraints){
+  let ref = db.collection(col);
+  constraints.forEach(fn => { ref = fn(ref); });
+  return ref;
+}
+function _where(field, op, val){ return (ref) => ref.where(field, op, val); }
 const COL_VP    = 'vipham';
 const COL_USERS = 'users';
 const COL_YEARS = 'namhoc';
@@ -610,16 +721,7 @@ const GV_SEED = [
   {ten:'Đoàn Thị Thuận',lopCN:'11E5',mon:'Toán',khoi:'11'},
 ];
 
-const GROUPS=[
-  {id:'A',title:'Hồ sơ sổ sách'},
-  {id:'B',title:'Họp hành & quy chế'},
-  {id:'C',title:'Điểm số & nộp bài'},
-  {id:'D',title:'Nghỉ dạy'},
-  {id:'E',title:'Giờ dạy trên lớp'},
-  {id:'F',title:'Dự giờ & BDTX'},
-  {id:'G',title:'Ký sổ & học bạ'},
-  {id:'H',title:'Chấm trả bài & Tổ CM'},
-];
+
 
 // Tài khoản mặc định (fallback khi chưa có Firestore users)
 // Tài khoản mặc định — luôn hoạt động kể cả khi Firestore lỗi
@@ -645,8 +747,8 @@ function curVP(){ return vpCache[curNH]||[]; }
 async function loadVP(nh){
   setLoading(true,'Đang tải dữ liệu...');
   try{
-    const q=query(collection(db,COL_VP),where('namHoc','==',nh));
-    const snap=await getDocs(q);
+    const q=_query(COL_VP,_where('namHoc','==',nh));
+    const snap=await _getDocs(q);
     vpCache[nh]=snap.docs.map(d=>{const data=d.data();data._docId=d.id;if(!data.id)data.id=d.id;return data;});
   }catch(e){console.error(e);vpCache[nh]=[];}
   setLoading(false);
@@ -654,33 +756,34 @@ async function loadVP(nh){
 
 async function loadYears(){
   try{
-    const snap=await getDocs(collection(db,COL_YEARS));
+    const snap=await _getDocs(_col(COL_YEARS));
     if(!snap.empty){years=snap.docs.map(d=>d.id).sort();}
   }catch(e){}
 }
 
 async function saveYear(nh){
-  try{await setDoc(doc(db,COL_YEARS,nh),{created:new Date().toISOString()});}catch(e){}
+  try{await _setDoc(_doc(COL_YEARS,nh),{created:new Date().toISOString()});}catch(e){}
 }
 
 async function removeYear(nh){
-  try{await deleteDoc(doc(db,COL_YEARS,nh));}catch(e){}
+  try{await _deleteDoc(_doc(COL_YEARS,nh));}catch(e){}
 }
 
 async function loadUsers(){
-  // Luôn bắt đầu với tài khoản local làm nền
+  // Luôn bắt đầu với tài khoản local
   allUsers=[...USERS];
+  if(!db){console.warn('Firebase chưa sẵn sàng, dùng tài khoản local');return;}
   try{
-    const snap=await getDocs(collection(db,COL_USERS));
+    const snap=await _getDocs(_col(COL_USERS));
     const fbUsers=snap.docs.map(d=>d.data()).filter(u=>u.user&&u.pass);
-    // Merge: Firestore ghi đè local nếu cùng username
     fbUsers.forEach(fu=>{
       const idx=allUsers.findIndex(u=>u.user===fu.user);
       if(idx>=0) allUsers[idx]=fu;
       else allUsers.push(fu);
     });
+    console.log('Loaded',allUsers.length,'users ('+fbUsers.length+' from Firestore)');
   }catch(e){
-    console.warn('Firestore loadUsers lỗi, dùng tài khoản local:',e.message);
+    console.warn('loadUsers Firebase loi:',e.message,'-> dung local');
   }
 }
 
@@ -693,6 +796,9 @@ async function doLogin(){
   const errEl=document.getElementById('login-err');
   errEl.textContent='';
   if(!u||!p){errEl.textContent='Vui lòng nhập đầy đủ.';return;}
+  setLoading(true,'Đang kết nối...');
+  // Khởi động Firebase nếu chưa có
+  if(!db) initFirebase();
   setLoading(true,'Đang đăng nhập...');
   try{
     await loadUsers();
@@ -802,9 +908,9 @@ async function delYear(e,y){
   await removeYear(y);
   setLoading(true,'Đang xóa dữ liệu...');
   try{
-    const q=query(collection(db,COL_VP),where('namHoc','==',y));
-    const snap=await getDocs(q);
-    await Promise.all(snap.docs.map(d=>deleteDoc(d.ref)));
+    const q=_query(COL_VP,_where('namHoc','==',y));
+    const snap=await _getDocs(q);
+    await Promise.all(snap.docs.map(d=>d.ref.delete()));
   }catch(e2){}
   setLoading(false);
   if(curNH===y)await selectYear(years[years.length-1]||years[0]);
@@ -835,27 +941,18 @@ function pickGV(ten,mon,lop,khoi){
 // TIÊU CHÍ
 // ══════════════════════════════════════════════════
 function renderTC(){
-  const outer=document.getElementById('vp-outer');
-  if(!outer)return;
-  outer.innerHTML=GROUPS.map(g=>`
-    <div class="vp-group">
-      <div class="vp-group-hd">
-        <span class="vp-group-letter">${g.id}</span>
-        <span class="vp-group-title">${g.title}</span>
-      </div>
-      <div class="vp-items">
-        ${TC.filter(t=>t.g===g.id).map(t=>`
-          <div class="vp-item" title="${t.label} — ${t.who}">
-            <label>
-              <input type="checkbox" id="tc-${t.id}" onchange="updateDTL()"/>
-              <span>${t.label}</span>
-              <span class="dp">−${t.d}</span>
-            </label>
-          </div>`).join('')}
-      </div>
-    </div>`).join('');
+  ['A','B','C','D','E','F','G','H'].forEach(g=>{
+    const el=document.getElementById('vp-'+g); if(!el)return;
+    el.innerHTML=TC.filter(t=>t.g===g).map(t=>`
+      <div class="vp-item" title="${t.label} — phụ trách: ${t.who}">
+        <label>
+          <input type="checkbox" id="tc-${t.id}" onchange="updateDTL()"/>
+          <span>${t.label}</span>
+          <span class="dp">−${t.d}</span>
+        </label>
+      </div>`).join('');
+  });
 }
-
 function updateDTL(){
   let s=0;TC.forEach(t=>{if(document.getElementById('tc-'+t.id)?.checked)s+=t.d;});
   document.getElementById('dtl').textContent=s>0?`Trừ: ${s.toFixed(2)} điểm`:'';
@@ -890,7 +987,7 @@ async function luuVP(){
   };
   setLoading(true,'Đang lưu...');
   try{
-    const ref=await addDoc(collection(db,COL_VP),record);
+    const ref=await _addDoc(COL_VP,record);
     record._docId=ref.id;record.id=ref.id;
     if(!vpCache[curNH])vpCache[curNH]=[];
     vpCache[curNH].push(record);
@@ -916,7 +1013,7 @@ async function delVP(id){
   if(!confirm('Xóa bản ghi này?'))return;
   setLoading(true,'Đang xóa...');
   try{
-    await deleteDoc(doc(db,COL_VP,docId));
+    await _deleteDoc(_doc(COL_VP,docId));
     vpCache[curNH]=vp.filter(v=>(v._docId||v.id)!==docId);
     renderLS();
   }catch(e){alert('Lỗi xóa: '+e.message);}
@@ -1138,7 +1235,7 @@ async function addAccount(){
   if(allUsers.find(u=>u.user===user)){alert('Tên đăng nhập đã tồn tại.');return;}
   setLoading(true,'Đang thêm...');
   try{
-    await setDoc(doc(db,COL_USERS,user),{user,name,pass,role});
+    await _setDoc(_doc(COL_USERS,user),{user,name,pass,role});
     document.getElementById('ac-user').value='';
     document.getElementById('ac-name').value='';
     document.getElementById('ac-pass').value='';
@@ -1153,7 +1250,7 @@ async function delAccount(user){
   if(!confirm('Xóa tài khoản "'+user+'"?'))return;
   setLoading(true,'Đang xóa...');
   try{
-    await deleteDoc(doc(db,COL_USERS,user));
+    await _deleteDoc(_doc(COL_USERS,user));
     await loadAndRenderAccounts();
     showAccMsg('Đã xóa: '+user,'var(--red)');
   }catch(e){alert('Lỗi: '+e.message);}
@@ -1165,9 +1262,9 @@ async function editAccPass(user){
   if(!newPass||newPass.length<4){if(newPass!==null)alert('Tối thiểu 4 ký tự.');return;}
   setLoading(true,'Đang cập nhật...');
   try{
-    const ref=doc(db,COL_USERS,user);
-    const snap=await getDoc(ref);
-    if(snap.exists())await setDoc(ref,{...snap.data(),pass:newPass});
+    const ref=_doc(COL_USERS,user);
+    const snap=await _getDoc(ref);
+    if(snap.exists())await _setDoc(ref,{...snap.data(),pass:newPass});
     await loadAndRenderAccounts();
     showAccMsg('Đã đổi MK cho: '+user,'var(--blue)');
   }catch(e){alert('Lỗi: '+e.message);}
@@ -1212,7 +1309,7 @@ async function handleAccFile(file){
       const pass=(parts[2]||'').trim();
       const role=(parts[3]||'staff').trim().toLowerCase()==='admin'?'admin':'staff';
       if(!user||!name||!pass||allUsers.find(u=>u.user===user)){skipped++;continue;}
-      try{await setDoc(doc(db,COL_USERS,user),{user,name,pass,role});added++;}catch(e2){skipped++;}
+      try{await _setDoc(_doc(COL_USERS,user),{user,name,pass,role});added++;}catch(e2){skipped++;}
     }
     await loadAndRenderAccounts();
     showAccMsg('Đã nhập '+added+' tài khoản'+(skipped?' ('+skipped+' bỏ qua)':''),'var(--green)');
@@ -1291,6 +1388,10 @@ function fd(d){if(!d)return'';const[y,m,day]=d.split('-');return`${day}/${m}/${y
 (function(){
   renderTC();
   document.getElementById('ngay').value=new Date().toISOString().split('T')[0];
+  // Khởi động Firebase ngay khi trang load
+  const fbOk = initFirebase();
+  if(fbOk) console.log('Firebase san sang');
+  else console.warn('Chay che do offline - chi dung tai khoan local');
   // Close year dropdown on outside click
   document.addEventListener('click',function(e){
     const panel=document.getElementById('yr-panel');
